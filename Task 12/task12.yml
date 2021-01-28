@@ -1,0 +1,66 @@
+- hosts: Servers
+  vars_prompt:
+  - name: Server_Port
+    prompt: Enter the port for Backend Server
+    private: no
+  tasks:
+  - name: "Installing httpd software"
+    package:
+      name: httpd
+      state: present
+  - name: "Installing php"
+    package:
+      name: php
+      state: present
+  - name: "Starting and Enabling httpd"
+    service:
+      name: httpd
+      state: started
+      enabled: yes
+  - name: "Copying php file"
+    copy:
+      src: /root/index.php
+      dest: /var/www/html/index.php
+  - name: "Enabling port no {{ Server_Port }} in firewall"
+    firewalld:
+      port: "{{ Server_Port }}/tcp"
+      state: enabled
+      permanent: yes
+- hosts: LB
+  vars_prompt:
+  - name: LB_port
+    prompt: Enter the port for Load Balancer
+    private: no
+  - name: Server_Port
+    prompt: Enter the port for Backend Server
+    private: no
+  tasks:
+  - name: "Installing haproxy"
+    package:
+      name: haproxy
+      state: present
+  - name: "Setting Selinux to Permissive"
+    selinux:
+      state: permissive
+      policy: targeted
+  - name: "Enabling port no {{ LB_port }} in firewall"
+    firewalld:
+      port: "{{ LB_port }}/tcp"
+      state: enabled
+      permanent: yes
+  - name: "Starting and enabling haproxy"
+    service:
+      name: haproxy
+      state: started
+      enabled: yes
+  - name: "Updating Haproxy Conf file"
+    template:
+      src: /root/haproxy.cfg
+      dest: /etc/haproxy/haproxy.cfg
+    notify:
+    - restart_haproxy
+  handlers:
+  - name: restart_haproxy
+    service:
+      name: haproxy
+      state: restarted
